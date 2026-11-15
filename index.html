@@ -793,7 +793,7 @@
 
     <footer class="foot">
       <div class="legend">
-        <span class="tag b">Yap</span>
+        <span class="tag b">Yapılacak</span>
         <span class="tag r">Bugün yap</span>
         <span class="tag g">Bitti</span>
         <span><span class="mk mk1">1 gün gecikti</span></span>
@@ -845,6 +845,10 @@
           <ul class="subs" id="subs" aria-labelledby="subsLabel"></ul>
           <button type="button" class="addsub" id="addSub">+ Alt görev ekle</button>
         </div>
+        <div class="field">
+          <label for="fDurum">Durum</label>
+          <select id="fDurum"></select>
+        </div>
         <label class="check"><input type="checkbox" id="fBitti"> Bitti</label>
       </fieldset>
     </div>
@@ -879,6 +883,7 @@
     const GUNLER = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
     const KISA_GUN = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
     const TUMU = 'Tümü';
+    const DURUMLAR = ['Başlamadı', 'Başladı', 'Devam ediyor'];
 
     const $ = id => document.getElementById(id);
     const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
@@ -924,6 +929,7 @@
         id: String(g.id), ad: String(g.ad || ''), sorumlu: String(g.sorumlu || ''),
         belirleme_tarihi: g.belirleme_tarihi || '', baslangic: g.baslangic || '', bitis: g.bitis || '',
         bitti: g.bitti === true,
+        durum: DURUMLAR.includes(g.durum) ? g.durum : DURUMLAR[0],
         alt_gorevler: Array.isArray(g.alt_gorevler) ? g.alt_gorevler.map(a => ({ ad: String(a.ad || ''), bitti: !!a.bitti })) : []
       };
     }
@@ -945,9 +951,9 @@
       }
       if (g.bitis < t) {
         const x = gunFarki(g.bitis, t);
-        return { cls: 'r', ad: 'Bugün yap', neden: x + ' gün gecikti', gecikme: x };
+        return { cls: 'r', ad: 'Bugün yap', neden: g.durum + ' · ' + x + ' gün gecikti', gecikme: x };
       }
-      return { cls: 'b', ad: 'Yap', neden: 'Son gün ' + kisaTarih(g.bitis), gecikme: 0 };
+      return { cls: 'b', ad: 'Yapılacak', neden: g.durum + ' · son gün ' + kisaTarih(g.bitis), gecikme: 0 };
     }
 
     const buHaftaMi = () => state.hafta === pazartesi(bugunStr());
@@ -1122,7 +1128,7 @@
       const t = bugunStr();
       const yeni = !g;
       state.taslak = yeni
-        ? { id: yeniId(), ad: '', sorumlu: state.kisi !== TUMU ? state.kisi : state.kisiler[0], belirleme_tarihi: t, baslangic: '', bitis: '', bitti: false, alt_gorevler: [], yeni: true }
+        ? { id: yeniId(), ad: '', sorumlu: state.kisi !== TUMU ? state.kisi : state.kisiler[0], belirleme_tarihi: t, baslangic: '', bitis: '', bitti: false, durum: DURUMLAR[0], alt_gorevler: [], yeni: true }
         : Object.assign(normal(g), { alt_gorevler: g.alt_gorevler.map(a => ({ ...a })), yeni: false });
       const d = state.taslak;
       $('pTitle').textContent = yeni ? 'Yeni görev' : 'Görev';
@@ -1132,6 +1138,7 @@
       $('fBel').value = d.belirleme_tarihi;
       $('fBas').value = d.baslangic;
       $('fBit').value = d.bitis;
+      $('fDurum').innerHTML = DURUMLAR.map(k => '<option' + (k === d.durum ? ' selected' : '') + '>' + k + '</option>').join('');
       $('fBitti').checked = d.bitti;
       altlariCiz();
       ['eAd', 'eBel', 'eBas', 'eBit', 'eSave'].forEach(id => $(id).textContent = '');
@@ -1200,6 +1207,7 @@
         id: d.id, ad: $('fAd').value.trim(), sorumlu: $('fSorumlu').value,
         belirleme_tarihi: $('fBel').value, baslangic: $('fBas').value, bitis: $('fBit').value,
         bitti: $('fBitti').checked,
+        durum: $('fDurum').value,
         alt_gorevler: d.alt_gorevler.map(a => ({ ad: a.ad.trim(), bitti: a.bitti })).filter(a => a.ad)
       };
       $('pSave').disabled = true;

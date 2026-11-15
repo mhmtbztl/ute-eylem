@@ -1,6 +1,6 @@
 // Uygulama dosyalarını önbelleğe alır; internet yokken uygulama yine açılır.
 // Dosyaları değiştirdiğinizde sürümü artırın (ute-v2, ute-v3 …).
-const CACHE = 'ute-v1';
+const CACHE = 'ute-v2';
 const XLSX_URL = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
 const FILES = ['./', 'index.html', 'manifest.json', 'icon-192.png', 'icon-512.png'];
 
