@@ -1,6 +1,6 @@
 // Uygulama dosyalarını önbelleğe alır; internet yokken uygulama yine açılır.
 // Dosyaları değiştirdiğinizde sürümü artırın (ute-v2, ute-v3 …).
-const CACHE = 'ute-v3';
+const CACHE = 'ute-v4';
 const XLSX_URL = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
 const SORTABLE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js';
 const DIS = [XLSX_URL, SORTABLE_URL];

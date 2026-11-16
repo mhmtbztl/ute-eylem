@@ -888,6 +888,13 @@ async function kaydet() {
     await gonder({ action: 'saveTask', gorev });
     kapat();
   } catch (e) {
+    console.warn('[UTE] kaydetme yanıtı', e);
+    // Yanıt kaybolmuş olabilir: sunucudaki son hâl bizim kaydımızla aynıysa kayıt başarılıdır.
+    if (!e.veri) {
+      await yenile();
+      const s = state.gorevler.find(g => g.id === gorev.id);
+      if (!state.offline && s && s.ad === gorev.ad && s.bitis === gorev.bitis && s.bitti === gorev.bitti && s.sorumlu === gorev.sorumlu) { kapat(); return; }
+    }
     if (!$('panel').hidden) $('eSave').textContent = hataMetni(e);
   } finally {
     $('pSave').disabled = state.offline;
@@ -897,10 +904,15 @@ async function kaydet() {
 
 async function sil() {
   $('pDelYes').disabled = true;
+  const id = state.taslak.id;
   try {
-    await gonder({ action: 'deleteTask', id: state.taslak.id });
+    await gonder({ action: 'deleteTask', id });
     kapat();
   } catch (e) {
+    console.warn('[UTE] silme yanıtı', e);
+    // Yanıt kaybolmuş olabilir: sunucudaki son hâle bak, görev gittiyse silme başarılıdır.
+    await yenile();
+    if (!state.offline && !state.gorevler.some(g => g.id === id)) { kapat(); return; }
     $('footConfirm').hidden = true;
     $('footNormal').hidden = false;
     $('eSave').textContent = 'Silinemedi. İnternet bağlantını kontrol edip tekrar dene.';
