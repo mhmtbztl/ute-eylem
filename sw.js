@@ -1,14 +1,18 @@
 // Uygulama dosyalarını önbelleğe alır; internet yokken uygulama yine açılır.
 // Dosyaları değiştirdiğinizde sürümü artırın (ute-v2, ute-v3 …).
-const CACHE = 'ute-v2';
+const CACHE = 'ute-v3';
 const XLSX_URL = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
+const SORTABLE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js';
+const DIS = [XLSX_URL, SORTABLE_URL];
 const FILES = ['./', 'index.html', 'manifest.json', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil((async () => {
     const c = await caches.open(CACHE);
     await c.addAll(FILES);
-    try { await c.add(XLSX_URL); } catch (x) { /* Excel kütüphanesi sonra önbelleğe alınır */ }
+    for (const u of DIS) {
+      try { await c.add(u); } catch (x) { /* sonra önbelleğe alınır */ }
+    }
     self.skipWaiting();
   })());
 });
@@ -44,8 +48,8 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Excel kütüphanesi: önce önbellek
-  if (req.url === XLSX_URL) {
+  // Excel ve sürükleme kütüphaneleri: önce önbellek
+  if (DIS.includes(req.url)) {
     e.respondWith((async () => {
       const hit = await caches.match(req);
       if (hit) return hit;
