@@ -86,6 +86,15 @@
   /* Başlık */
   .head { display: flex; align-items: center; gap: 8px; padding: 8px 0; }
   .head h1 { flex: 1; min-width: 0; margin: 0; font-size: 19px; line-height: 1.25; }
+  .panosel {
+    max-width: 100%; min-height: 44px; padding: 0 28px 0 0; border: 0; background: transparent;
+    font: inherit; color: var(--text); cursor: pointer; text-overflow: ellipsis;
+    -webkit-appearance: none; appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: right 12px top 55%, right 7px top 55%; background-size: 5px 5px; background-repeat: no-repeat;
+  }
+  .panosel option { font-size: 16px; font-weight: 400; color: var(--text); background: var(--bg); }
+  .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
   /* Sayfa sekmeleri */
   .pages { display: flex; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
@@ -316,6 +325,7 @@
       <input id="keyInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
     </div>
     <button class="btn btn-primary" type="submit" style="width:100%">Devam</button>
+    <button class="btn" id="keyCancel" type="button" style="width:100%;margin-top:8px" hidden>Vazgeç</button>
   </form>
 </section>
 
@@ -323,7 +333,7 @@
   <p class="offline" id="offline" hidden>Çevrimdışı – son kayıtlı hâl</p>
 
   <header class="head">
-    <h1>Haftalık eylem planı</h1>
+    <h1><label class="vh" for="panoSel">Pano</label><select class="panosel" id="panoSel"></select></h1>
     <button class="btn" id="themeBtn" type="button"></button>
     <button class="btn btn-primary" id="newBtn" type="button">+ Yeni görev</button>
   </header>
@@ -455,7 +465,7 @@ const API = "https://script.google.com/macros/s/AKfycbyG35QpkX98ziEZ1j7HTTZGB22Q
 // ─────────────────────────────────────────────
 
 const XLSX_URL = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
-const LS = { key: 'ute_anahtar', data: 'ute_veri', theme: 'ute_tema', bolum: 'ute_bolum' };
+const LS = { key: 'ute_anahtar', panolar: 'ute_panolar', aktif: 'ute_aktif', data: 'ute_veri', theme: 'ute_tema', bolum: 'ute_bolum' };
 const AYLAR = ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
 const AY_EK = ["'da","'da","'da","'te","'da","'da","'de","'da","'de","'de","'ta","'da"]; // 18 Kas'ta
 const GUNLER = ['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];
@@ -501,6 +511,27 @@ function ek(n) { // 1'i, 2'si, 3'ü, 6'sı, 10'u …
   return ["", "'u", "'si", "'u", "'ı", "'si", "'ı", "'i", "'i", "'ı"][o];
 }
 
+// ── Panolar (bu cihazda kayıtlı anahtarlar) ──
+// [{ key, ad }] — ad sunucudan gelir (Pazarlama, Temizlik …).
+let panolar = [];
+try { panolar = (JSON.parse(lsGet(LS.panolar) || '[]') || []).filter(x => x && x.key); } catch (e) {}
+(function eskiAnahtariTasi() { // tek anahtarlı eski sürümden geçiş
+  const eski = lsGet(LS.key);
+  if (!eski) return;
+  if (!panolar.some(x => x.key === eski)) panolar.unshift({ key: eski, ad: '' });
+  const v = lsGet(LS.data);
+  if (v && !lsGet(LS.data + ':' + eski)) lsSet(LS.data + ':' + eski, v);
+  lsDel(LS.key); lsDel(LS.data);
+  lsSet(LS.panolar, JSON.stringify(panolar));
+})();
+let aktifKey = lsGet(LS.aktif);
+if (!panolar.some(x => x.key === aktifKey)) aktifKey = panolar.length ? panolar[0].key : null;
+const panolarKaydet = () => { lsSet(LS.panolar, JSON.stringify(panolar)); if (aktifKey) lsSet(LS.aktif, aktifKey); else lsDel(LS.aktif); };
+const aktifPano = () => panolar.find(x => x.key === aktifKey);
+const panoAdi = () => { const p = aktifPano(); return p && p.ad ? p.ad : ''; };
+const baslikMetni = () => 'UTE' + (panoAdi() ? ' · ' + panoAdi() : '');
+const veriAnahtari = () => LS.data + ':' + aktifKey;
+
 // ── Durum ──
 let bolumAcik = {};
 try { bolumAcik = JSON.parse(lsGet(LS.bolum) || '{}') || {}; } catch (e) {}
@@ -528,13 +559,18 @@ function normal(g) {
   };
 }
 
+function veriKaydet() {
+  if (aktifKey) lsSet(veriAnahtari(), JSON.stringify({ gorevler: state.gorevler, kisiler: state.kisiler }));
+}
+
 function veriUygula(j, kaydet) {
+  if (j.pano && aktifPano() && aktifPano().ad !== j.pano) { aktifPano().ad = String(j.pano); panolarKaydet(); }
   state.gorevler = (j.gorevler || []).map(normal);
   if (Array.isArray(j.kisiler)) {
     state.kisiler = j.kisiler.map(k => typeof k === 'string' ? { ad: k, renk: 'gri' } : { ad: String(k.ad), renk: RENK[k.renk] ? k.renk : 'gri' });
   }
   if (state.kisi !== TUMU && !state.kisiler.some(k => k.ad === state.kisi)) state.kisi = TUMU;
-  if (kaydet) lsSet(LS.data, JSON.stringify({ gorevler: state.gorevler, kisiler: state.kisiler }));
+  if (kaydet) veriKaydet();
   ciz();
 }
 
@@ -678,6 +714,12 @@ const sayfa = () => location.hash === '#hafta' ? 'hafta' : 'bugun';
 let siralayicilar = [];
 
 function ciz() {
+  document.title = baslikMetni();
+  const secenekler =
+    panolar.map(x => '<option value="' + esc(x.key) + '"' + (x.key === aktifKey ? ' selected' : '') + '>UTE' + (x.ad ? ' · ' + esc(x.ad) : '') + '</option>').join('') +
+    '<option value="">+ Pano ekle…</option>';
+  if ($('panoSel').dataset.html !== secenekler) { $('panoSel').innerHTML = secenekler; $('panoSel').dataset.html = secenekler; }
+  $('panoSel').value = aktifKey || '';
   const tema = document.documentElement.getAttribute('data-theme');
   $('themeBtn').textContent = tema === 'dark' ? 'Gündüz' : 'Gece';
   $('themeBtn').setAttribute('aria-label', tema === 'dark' ? 'Gündüz moduna geç' : 'Gece moduna geç');
@@ -721,13 +763,44 @@ function ciz() {
 function anahtarSor(mesaj) {
   $('app').hidden = true;
   $('keyScreen').hidden = false;
-  $('keyMsg').textContent = mesaj || 'Erişim anahtarını yaz. Bu cihazda bir kez sorulur.';
+  $('keyCancel').hidden = !aktifKey;
+  $('keyMsg').textContent = mesaj || (aktifKey ? 'Eklemek istediğin panonun anahtarını yaz.' : 'Erişim anahtarını yaz. Bu cihazda bir kez sorulur.');
   $('keyInput').value = '';
   $('keyInput').focus();
 }
 
+// Anahtar yanlışsa (ya da sunucuda silinmişse) panoyu bu cihazdan kaldırır.
+function anahtarYanlis(key) {
+  panolar = panolar.filter(x => x.key !== key);
+  lsDel(LS.data + ':' + key);
+  if (aktifKey === key) {
+    aktifKey = panolar.length ? panolar[0].key : null;
+    panoYukle();
+  }
+  panolarKaydet();
+  anahtarSor('Anahtar yanlış. Tekrar yaz.');
+}
+
+// Aktif panonun kayıtlı verisini ekrana getirir.
+function panoYukle() {
+  state.gorevler = []; state.kisiler = [];
+  state.kisi = TUMU; state.bitenTumu = false;
+  state.istekNo++;
+  try { const c = JSON.parse(lsGet(veriAnahtari()) || 'null'); if (c) { veriUygula(c, false); return; } } catch (e) {}
+  ciz();
+}
+
+function panoSec(key) {
+  if (key === aktifKey) return;
+  kapat();
+  aktifKey = key;
+  panolarKaydet();
+  panoYukle();
+  yenile();
+}
+
 async function yenile() {
-  const key = lsGet(LS.key);
+  const key = aktifKey;
   if (!key) { anahtarSor(); return; }
   const no = ++state.istekNo;
   try {
@@ -735,7 +808,7 @@ async function yenile() {
     const j = await r.json();
     if (no !== state.istekNo) return;
     if (!j.ok) {
-      if (j.hata === 'anahtar') { lsDel(LS.key); anahtarSor('Anahtar yanlış. Tekrar yaz.'); }
+      if (j.hata === 'anahtar') anahtarYanlis(key);
       return;
     }
     state.offline = false;
@@ -749,14 +822,15 @@ async function yenile() {
 
 // POST gönderir. Sunucu hata verse bile güncel veriyi döndürür; ekran onunla güncellenir.
 async function gonder(govde) {
-  govde.key = lsGet(LS.key);
+  const key = govde.key = aktifKey;
   const r = await fetch(API, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(govde)
   });
   const j = await r.json();
-  if (j.hata === 'anahtar') { lsDel(LS.key); kapat(); anahtarSor('Anahtar yanlış. Tekrar yaz.'); throw Object.assign(new Error('anahtar'), { veri: j }); }
+  if (key !== aktifKey) return j; // bu arada başka panoya geçildi
+  if (j.hata === 'anahtar') { kapat(); anahtarYanlis(key); throw Object.assign(new Error('anahtar'), { veri: j }); }
   state.istekNo++; // araya giren eski yenileme yanıtını yok say
   if (j.gorevler) veriUygula(j, true);
   if (!j.ok) throw Object.assign(new Error(j.hata || 'hata'), { veri: j });
@@ -769,7 +843,7 @@ function siraDegisti(ids) {
   const g = ids.map(id => state.gorevler.find(x => x.id === id)).filter(Boolean);
   const degerler = g.map(x => x.sira).sort((a, b) => a - b);
   g.forEach((x, i) => { x.sira = degerler[i]; });
-  lsSet(LS.data, JSON.stringify({ gorevler: state.gorevler, kisiler: state.kisiler }));
+  veriKaydet();
   ciz();
   gonder({ action: 'reorder', ids }).catch(() => yenile());
 }
@@ -1097,7 +1171,7 @@ async function excel() {
   const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'UTE-eylem-plani-' + pzt + '.xlsx';
+  a.download = 'UTE-' + (panoAdi() ? panoAdi() + '-' : '') + 'eylem-plani-' + pzt + '.xlsx';
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
@@ -1107,7 +1181,7 @@ function baskiHazirla() {
   const L = listeler();
   const kim = state.kisi === TUMU ? '' : ' · ' + esc(state.kisi);
   $('print').innerHTML =
-    '<h1>Haftalık eylem planı · ' + haftaEtiket() + kim + '</h1>' +
+    '<h1>' + esc(baslikMetni()) + ' · ' + haftaEtiket() + kim + '</h1>' +
     '<p class="summary">' + ozet(L) + '</p>' + tabloHTML(L.plan, 'plan', 'Bu hafta planlı iş yok.', true) +
     (L.tarihsiz.length ? '<h2>Tarihsiz (' + L.tarihsiz.length + ')</h2>' + tabloHTML(L.tarihsiz, 'tarihsiz', '', false) : '') +
     '<div class="pbreak"><h1>Hafta · ' + haftaEtiket() + kim + '</h1>' + haftaHTML(L.hafta) + '</div>';
@@ -1252,10 +1326,25 @@ $('keyForm').addEventListener('submit', e => {
   e.preventDefault();
   const v = $('keyInput').value.trim();
   if (!v) return;
-  lsSet(LS.key, v);
+  if (!panolar.some(x => x.key === v)) panolar.push({ key: v, ad: '' });
   $('keyScreen').hidden = true;
   $('app').hidden = false;
+  if (v === aktifKey) { yenile(); return; }
+  kapat();
+  aktifKey = v;
+  panolarKaydet();
+  panoYukle();
   yenile();
+});
+$('keyCancel').addEventListener('click', () => {
+  $('keyScreen').hidden = true;
+  $('app').hidden = false;
+  ciz();
+});
+$('panoSel').addEventListener('change', e => {
+  const v = e.target.value;
+  if (v) panoSec(v);
+  else { e.target.value = aktifKey || ''; anahtarSor(); }
 });
 
 // Ekran açıldığında ve uygulamaya geri dönüldüğünde yenile
@@ -1267,7 +1356,7 @@ window.addEventListener('offline', () => { state.offline = true; ciz(); });
 (function basla() {
   if (document.documentElement.getAttribute('data-theme') === 'dark') document.querySelector('meta[name="theme-color"]').content = '#2C2C2A';
   try {
-    const c = JSON.parse(lsGet(LS.data) || 'null');
+    const c = aktifKey ? JSON.parse(lsGet(veriAnahtari()) || 'null') : null;
     if (c) veriUygula(c, false); else ciz();
   } catch (e) { ciz(); }
   yenile();
