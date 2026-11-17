@@ -258,6 +258,35 @@
   .addsub { width: 100%; min-height: 44px; border: 0; background: transparent; text-align: left; padding: 0 12px; color: var(--text2); cursor: pointer; font-size: 15px; }
   .check { display: flex; align-items: center; gap: 12px; min-height: 44px; cursor: pointer; font-size: 16px; font-weight: 500; }
 
+  /* Temizlik kontrol listesi */
+  .evler { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+  .evler .chip { justify-content: center; }
+  .kozet { font-size: 16px; font-weight: 500; margin: 0 0 4px; }
+  .kbilgi { margin: 0 0 12px; }
+  .eksik { margin: 0 0 12px; padding: 8px 12px; border-radius: 8px; background: var(--r-bg); color: var(--r-tx); font-size: 15px; }
+  .kb { border-top: 1px solid var(--line); }
+  .kb summary {
+    list-style: none; min-height: 48px; display: flex; align-items: center; gap: 8px;
+    font-size: 16px; font-weight: 500; cursor: pointer;
+  }
+  .kb summary::-webkit-details-marker { display: none; }
+  .kb summary .say { margin-left: auto; font-weight: 400; }
+  .kb .chev { color: var(--text2); transition: transform .15s; }
+  .kb[open] .chev { transform: rotate(180deg); }
+  .knot { margin: 0 0 8px; }
+  .km { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 8px 0; border-top: 1px solid var(--line); }
+  .kmetin { flex: 1 1 180px; min-width: 0; font-size: 15px; line-height: 1.35; overflow-wrap: anywhere; }
+  .kbtn { display: flex; gap: 6px; margin-left: auto; }
+  .kx {
+    min-width: 44px; height: 44px; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--bg); color: var(--text2); font-size: 15px; cursor: pointer;
+  }
+  .kx.z[aria-pressed="true"] { background: var(--b-bg); color: var(--b-tx); border-color: var(--b-tx); font-weight: 500; }
+  .kx.m[aria-pressed="true"] { background: var(--g-bg); color: var(--g-tx); border-color: var(--g-tx); font-weight: 500; }
+  .kx.var[aria-pressed="true"] { background: var(--g-bg); color: var(--g-tx); border-color: var(--g-tx); font-weight: 500; }
+  .kx.az[aria-pressed="true"] { background: var(--kehribar-bg); color: var(--kehribar-tx); border-color: var(--kehribar-tx); font-weight: 500; }
+  .kx.yok[aria-pressed="true"] { background: var(--r-bg); color: var(--r-tx); border-color: var(--r-tx); font-weight: 500; }
+
   /* Kişiler paneli */
   .klist { list-style: none; margin: 0; padding: 0; }
   .krow { border-bottom: 1px solid var(--line); padding: 4px 0; }
@@ -406,7 +435,7 @@
         <input id="fBit" type="date">
         <p class="err" id="eBit"></p>
       </div>
-      <div class="field">
+      <div class="field" id="fAltAlan">
         <span class="flabel" id="subsLabel">Alt görevler</span>
         <ul class="subs" id="subs" aria-labelledby="subsLabel"></ul>
         <button type="button" class="addsub" id="addSub">+ Alt görev ekle</button>
@@ -415,8 +444,9 @@
         <label for="fDurum">Durum</label>
         <select id="fDurum"></select>
       </div>
-      <label class="check"><input type="checkbox" id="fBitti"> Bitti</label>
+      <label class="check" id="fBittiAlan"><input type="checkbox" id="fBitti"> Bitti</label>
     </fieldset>
+    <div id="kontrolAlan" hidden></div>
   </div>
   <div class="p-foot">
     <div id="footNormal">
@@ -433,6 +463,36 @@
         <button class="btn" id="pDelNo" type="button">Vazgeç</button>
       </div>
     </div>
+  </div>
+</aside>
+
+<!-- Yeni temizlik paneli -->
+<aside class="panel" id="tPanel" role="dialog" aria-modal="true" aria-labelledby="tTitle" hidden>
+  <div class="p-head">
+    <h2 id="tTitle">Yeni temizlik</h2>
+    <button class="btn" type="button" data-kapat>Kapat</button>
+  </div>
+  <div class="p-body">
+    <fieldset id="tFields">
+      <div class="field">
+        <span class="flabel" id="tEvLabel">Ev</span>
+        <div class="evler" id="tEv" role="group" aria-labelledby="tEvLabel"></div>
+        <p class="err" id="tEvErr"></p>
+      </div>
+      <div class="field">
+        <label for="tSorumlu">Sorumlu</label>
+        <div class="selwrap"><span class="dot" id="tSorumluDot"></span><select id="tSorumlu"></select></div>
+        <p class="err" id="tSorumluErr"></p>
+      </div>
+      <div class="field">
+        <label for="tGun">Temizlik günü</label>
+        <input id="tGun" type="date">
+      </div>
+    </fieldset>
+  </div>
+  <div class="p-foot">
+    <p class="err" id="tErr"></p>
+    <button class="btn btn-primary" id="tSave" type="button" style="width:100%">Oluştur</button>
   </div>
 </aside>
 
@@ -481,7 +541,7 @@ const RENK_ADLARI = Object.keys(RENK);
 const slug = r => (r === 'yeşil' ? 'yesil' : (RENK[r] ? r : 'gri'));
 const HATA = {
   kisi_var: 'Bu adla bir kişi zaten var.', kisi_ad: 'Bir ad yaz.', renk: 'Bir renk seç.',
-  sorumlu: 'Sorumlu kişi listede yok.', tarih: 'Tarihleri kontrol et.', eksik: 'Görev adı gerekli.'
+  sorumlu: 'Sorumlu kişi listede yok.', ev: 'Bu evin listesi bulunamadı.', tarih: 'Tarihleri kontrol et.', eksik: 'Görev adı gerekli.'
 };
 
 const $ = id => document.getElementById(id);
@@ -546,7 +606,11 @@ const state = {
   bitenTumu: false,
   kRenk: null,
   kMesaj: null,
-  istekNo: 0
+  istekNo: 0,
+  evler: [],         // temizlik panosunda ev adları (Listeler_<Pano> sayfasından)
+  tEv: null,         // Yeni temizlik panelinde seçili ev
+  kAcik: {},         // kontrol listesinde açık bölümler
+  kGonderiliyor: false
 };
 
 function normal(g) {
@@ -555,27 +619,212 @@ function normal(g) {
     belirleme_tarihi: g.belirleme_tarihi || '', baslangic: g.baslangic || '', bitis: g.bitis || '',
     bitti: g.bitti === true, bitirme_tarihi: g.bitirme_tarihi || '', sira: Number(g.sira) || 0,
     durum: DURUMLAR.includes(g.durum) ? g.durum : DURUMLAR[0],
-    alt_gorevler: Array.isArray(g.alt_gorevler) ? g.alt_gorevler.map(a => ({ ad: String(a.ad || ''), bitti: !!a.bitti })) : []
+    alt_gorevler: Array.isArray(g.alt_gorevler) ? g.alt_gorevler.map(a => ({ ad: String(a.ad || ''), bitti: !!a.bitti })) : [],
+    kontrol: g.kontrol && typeof g.kontrol === 'object' ? g.kontrol : null
   };
 }
 
 function veriKaydet() {
-  if (aktifKey) lsSet(veriAnahtari(), JSON.stringify({ gorevler: state.gorevler, kisiler: state.kisiler }));
+  if (aktifKey) lsSet(veriAnahtari(), JSON.stringify({ gorevler: state.gorevler, kisiler: state.kisiler, evler: state.evler }));
 }
 
 function veriUygula(j, kaydet) {
   if (j.pano && aktifPano() && aktifPano().ad !== j.pano) { aktifPano().ad = String(j.pano); panolarKaydet(); }
   state.gorevler = (j.gorevler || []).map(normal);
+  if (Array.isArray(j.evler)) state.evler = j.evler.map(String);
+  kuyruk(aktifKey).forEach(x => { const g = state.gorevler.find(y => y.id === x.id); if (g) kontrolUygula(g, x); });
   if (Array.isArray(j.kisiler)) {
     state.kisiler = j.kisiler.map(k => typeof k === 'string' ? { ad: k, renk: 'gri' } : { ad: String(k.ad), renk: RENK[k.renk] ? k.renk : 'gri' });
   }
   if (state.kisi !== TUMU && !state.kisiler.some(k => k.ad === state.kisi)) state.kisi = TUMU;
   if (kaydet) veriKaydet();
   ciz();
+  if (state.taslak && !$('panel').hidden) kontrolCiz();
 }
 
 const kisiRengi = ad => { const k = state.kisiler.find(x => x.ad === ad); return k ? k.renk : 'gri'; };
 const nokta = ad => '<span class="dot" style="background:#' + RENK[kisiRengi(ad)][1] + '"></span>';
+
+// ── Temizlik kontrol listesi ──
+// İşaretler hemen ekranda görünür, sıraya alınır ve arka planda gönderilir.
+// Sıra telefonda saklanır; internet yokken atılan işaretler bağlantı gelince gider.
+const KUYRUK = 'ute_bekleyen:';
+const kuyruklar = {};
+function kuyruk(key) {
+  if (!key) return [];
+  if (!kuyruklar[key]) {
+    try { kuyruklar[key] = JSON.parse(lsGet(KUYRUK + key) || '[]') || []; } catch (e) { kuyruklar[key] = []; }
+  }
+  return kuyruklar[key];
+}
+function kuyrukKaydet(key) {
+  const q = kuyruk(key);
+  if (q.length) lsSet(KUYRUK + key, JSON.stringify(q)); else lsDel(KUYRUK + key);
+}
+
+function kontrolUygula(g, x) {
+  const k = g.kontrol;
+  if (!k || k.arsiv) return;
+  if (x.t === 'mz') { if (k.mz[x.i]) k.mz[x.i].d = x.v; }
+  else {
+    const m = k.b[x.b] && k.b[x.b].m[x.i];
+    if (!m) return;
+    if (x.t === 'm') m.k = x.v;
+    else if (m.z[x.o] !== undefined) m.z[x.o] = x.v;
+  }
+  const tamam = k.b.some(b => b.m.length) && k.b.every(b => b.m.every(m => m.k));
+  if (tamam !== g.bitti) { g.bitti = tamam; g.bitirme_tarihi = tamam ? bugunStr() : ''; }
+}
+
+function kontrolSay(k) {
+  let n = 0, z = 0, m = 0;
+  (k.b || []).forEach(b => b.m.forEach(x => { n++; if (x.z.every(Boolean)) z++; if (x.k) m++; }));
+  return { n, z, m, eksik: (k.mz || []).filter(x => x.d === 'az' || x.d === 'yok') };
+}
+const kontrolMetni = k => { const c = kontrolSay(k); return 'Z ' + c.z + '/' + c.n + ' · M ' + c.m + '/' + c.n; };
+const eksikMetni = k => kontrolSay(k).eksik.map(x => x.ad + (x.d === 'az' ? ' (az)' : ' (yok)')).join(', ');
+const kontrolluMu = g => !!(g && g.kontrol && !g.kontrol.arsiv);
+function kontrolEk(g) {
+  if (!kontrolluMu(g)) return '';
+  const e = kontrolSay(g.kontrol).eksik.length;
+  return ' · ' + kontrolMetni(g.kontrol) + (e ? ' · ' + e + ' eksik' : '');
+}
+
+function isaretle(id, x) {
+  const g = state.gorevler.find(y => y.id === id);
+  if (!kontrolluMu(g)) return;
+  const key = aktifKey;
+  kontrolUygula(g, x);
+  kuyruk(key).push(Object.assign({ id }, x));
+  kuyrukKaydet(key);
+  veriKaydet();
+  ciz();
+  kontrolCiz();
+  clearTimeout(state.kZaman);
+  state.kZaman = setTimeout(() => kuyrukGonder(key), 700);
+}
+
+async function kuyrukGonder(key) {
+  key = key || aktifKey;
+  const q = kuyruk(key);
+  if (state.kGonderiliyor || !q.length || key !== aktifKey) return;
+  state.kGonderiliyor = true;
+  const id = q[0].id;
+  const parti = q.filter(x => x.id === id);
+  let tekrar = false;
+  try {
+    await gonder({ action: 'kontrol', id, d: parti.map(({ id, ...x }) => x) });
+  } catch (e) {
+    console.warn('[UTE] işaret gönderilemedi', e);
+    tekrar = !e.veri; // ağ hatası: sonra yeniden dene. Sunucu reddettiyse bırak.
+  }
+  if (!tekrar) { kuyruklar[key] = kuyruk(key).filter(x => !parti.includes(x)); kuyrukKaydet(key); }
+  state.kGonderiliyor = false;
+  state.kHata = tekrar;
+  if (state.taslak && !$('panel').hidden) kontrolCiz();
+  if (tekrar) { clearTimeout(state.kZaman); state.kZaman = setTimeout(() => kuyrukGonder(key), 20000); }
+  else if (kuyruk(key).length) kuyrukGonder(key);
+}
+
+function kontrolCiz() {
+  const alan = $('kontrolAlan');
+  const g = state.taslak && state.gorevler.find(y => y.id === state.taslak.id);
+  const k = g && g.kontrol;
+  if (!k) { alan.hidden = true; alan.innerHTML = ''; return; }
+  alan.hidden = false;
+  if (k.arsiv) {
+    alan.innerHTML = '<p class="sec">Bu temizlik ' + 45 + ' günden eski. İşaretleri Sheet\'te görev satırının "kontrol" sütununda duruyor.</p>';
+    return;
+  }
+  const odak = document.activeElement && alan.contains(document.activeElement) ? document.activeElement.dataset.anahtar : null;
+  const c = kontrolSay(k);
+  const bekleyen = kuyruk(aktifKey).filter(x => x.id === g.id).length;
+  let h = '<p class="kozet">' + kontrolMetni(k) + '</p><p class="sec kbilgi">' +
+    (bekleyen
+      ? (state.offline || state.kHata ? bekleyen + ' işaret internet gelince gönderilecek.' : bekleyen + ' işaret gönderiliyor…')
+      : 'İşaretler kendiliğinden kaydedilir. Bütün M kutuları işaretlenince temizlik biter.') + '</p>';
+  if (c.eksik.length) h += '<p class="eksik"><b>Eksikler:</b> ' + esc(eksikMetni(k)) + '</p>';
+  const ok = '<span class="chev" aria-hidden="true">⌄</span>';
+  k.b.forEach((b, bi) => {
+    const n = b.m.length, z = b.m.filter(x => x.z.every(Boolean)).length, m = b.m.filter(x => x.k).length;
+    h += '<details class="kb" data-bolum="' + bi + '"' + (state.kAcik[bi] ? ' open' : '') + '>' +
+      '<summary><span>' + esc(b.ad) + '</span><span class="sec say">Z ' + z + '/' + n + ' · M ' + m + '/' + n + '</span>' + ok + '</summary>' +
+      (b.not ? '<p class="sec knot">' + esc(b.not) + '</p>' : '');
+    b.m.forEach((x, i) => {
+      const zb = x.z.map((v, o) =>
+        '<button type="button" class="kx z" data-anahtar="z.' + bi + '.' + i + '.' + o + '" aria-pressed="' + v + '"' +
+        ' aria-label="' + (x.o ? 'Z, ODA ' + (o + 1) : 'Z, yapıldı') + '">' + (x.o ? 'Z' + (o + 1) : 'Z') + '</button>').join('');
+      h += '<div class="km"><div class="kmetin">' + esc(x.ad) + '</div><div class="kbtn">' + zb +
+        '<button type="button" class="kx m" data-anahtar="m.' + bi + '.' + i + '" aria-pressed="' + x.k + '" aria-label="M, kontrol edildi">M</button>' +
+        '</div></div>';
+    });
+    h += '</details>';
+  });
+  if (k.mz.length) {
+    const e = c.eksik.length, bos = k.mz.filter(x => !x.d).length;
+    const say = [e ? e + ' eksik' : '', bos ? bos + ' bakılmadı' : ''].filter(Boolean).join(' · ') || 'tamam';
+    h += '<details class="kb" data-bolum="mz"' + (state.kAcik.mz ? ' open' : '') + '>' +
+      '<summary><span>Malzeme listesi</span><span class="sec say">' + say + '</span>' + ok + '</summary>';
+    k.mz.forEach((x, i) => {
+      h += '<div class="km"><div class="kmetin">' + esc(x.ad) + '</div><div class="kbtn" role="group" aria-label="' + esc(x.ad) + '">' +
+        [['var', 'Var'], ['az', 'Az'], ['yok', 'Yok']].map(([v, t]) =>
+          '<button type="button" class="kx ' + v + '" data-anahtar="mz.' + i + '.' + v + '" aria-pressed="' + (x.d === v) + '">' + t + '</button>').join('') +
+        '</div></div>';
+    });
+    h += '</details>';
+  }
+  alan.innerHTML = h;
+  if (odak) { const el = alan.querySelector('[data-anahtar="' + odak + '"]'); if (el) el.focus({ preventScroll: true }); }
+}
+
+// Yeni temizlik paneli
+const yeniDugme = () => state.evler.length ? '+ Temizlik' : '+ Yeni görev';
+const tSorumluNokta = () => { $('tSorumluDot').style.background = '#' + RENK[kisiRengi($('tSorumlu').value)][1]; };
+function tEvCiz() {
+  $('tEv').innerHTML = state.evler.map(ev =>
+    '<button type="button" class="chip" data-ev="' + esc(ev) + '" aria-pressed="' + (ev === state.tEv) + '">' + esc(ev) + '</button>').join('');
+}
+function temizlikAc() {
+  state.tEv = null;
+  const son = state.kisiler[state.kisiler.length - 1];
+  const ilk = state.kisi !== TUMU ? state.kisi : (son ? son.ad : '');
+  $('tSorumlu').innerHTML = state.kisiler.map(k => '<option' + (k.ad === ilk ? ' selected' : '') + '>' + esc(k.ad) + '</option>').join('');
+  tSorumluNokta();
+  $('tGun').value = bugunStr();
+  ['tEvErr', 'tSorumluErr', 'tErr'].forEach(id => { $(id).textContent = ''; });
+  tEvCiz();
+  panelAc('tPanel');
+  $('tPanel').querySelector('[data-kapat]').focus();
+}
+async function temizlikOlustur() {
+  $('tEvErr').textContent = state.tEv ? '' : 'Bir ev seç.';
+  $('tSorumluErr').textContent = $('tSorumlu').value ? '' : 'Önce + Kişi ile bir kişi ekle.';
+  if (!state.tEv || !$('tSorumlu').value) return;
+  const t = bugunStr(), gun = $('tGun').value || t;
+  const gorev = {
+    id: yeniId(), ad: state.tEv + ' temizliği', sorumlu: $('tSorumlu').value,
+    belirleme_tarihi: gun < t ? gun : t, baslangic: '', bitis: gun, bitti: false,
+    durum: DURUMLAR[0], alt_gorevler: [], ev: state.tEv
+  };
+  const ac2 = () => { const g = state.gorevler.find(x => x.id === gorev.id); kapat(); if (g) ac(g); };
+  $('tSave').disabled = true;
+  $('tSave').textContent = 'Oluşturuluyor…';
+  $('tErr').textContent = '';
+  try {
+    await gonder({ action: 'saveTask', gorev });
+    ac2();
+  } catch (e) {
+    console.warn('[UTE] temizlik oluşturma yanıtı', e);
+    if (!e.veri) {
+      await yenile();
+      if (!state.offline && state.gorevler.some(x => x.id === gorev.id)) { ac2(); return; }
+    }
+    if (!$('tPanel').hidden) $('tErr').textContent = hataMetni(e);
+  } finally {
+    $('tSave').disabled = state.offline;
+    $('tSave').textContent = 'Oluştur';
+  }
+}
 
 // ── Görev hesapları ──
 const basla = g => g.baslangic || g.belirleme_tarihi;
@@ -629,7 +878,7 @@ function ozet(L) {
   const n = L.plan.length + L.bitenHafta, d = L.bitenHafta;
   const gec = L.plan.filter(g => g.bitis < t).length;
   const bugun = L.plan.filter(g => g.bitis === t).length;
-  if (!n) return tz ? bas + ' planlı iş yok; ' + planla : bas + ' iş yok; <b>+ Yeni görev</b> ile iş ekle.';
+  if (!n) return tz ? bas + ' planlı iş yok; ' + planla : bas + ' iş yok; <b>' + yeniDugme() + '</b> ile iş ekle.';
   if (d === n) return bas + ' <b>' + n + '</b> işin hepsi bitti; ' + planla;
   const giris = bas + ' <b>' + n + '</b> işin <b>' + d + ek(d) + '</b> bitti; ';
   if (gec) return giris + '<b>' + gec + '</b> iş gecikti, bugün ' + (gec > 1 ? 'onları' : 'onu') + ' bitir.';
@@ -649,7 +898,7 @@ function satirHTML(g, tur) {
   const ad = e.gecikme ? '<span class="mk ' + (e.gecikme >= 2 ? 'mk2' : 'mk1') + '">' + esc(g.ad) + '</span>' : esc(g.ad);
   return '<div class="' + cls + '" role="row" tabindex="0" data-id="' + esc(g.id) + '">' + tutamac +
     '<div role="cell">' + tarih + '</div>' +
-    '<div role="cell"><div class="name">' + ad + '</div><div class="sec who">' + nokta(g.sorumlu) + esc(g.sorumlu) + '</div></div>' +
+    '<div role="cell"><div class="name">' + ad + '</div><div class="sec who">' + nokta(g.sorumlu) + esc(g.sorumlu) + esc(kontrolEk(g)) + '</div></div>' +
     '<div role="cell"><span class="tag ' + e.cls + '">' + e.ad + '</span><div class="sec why">' + esc(e.neden) + '</div></div></div>';
 }
 
@@ -753,8 +1002,10 @@ function ciz() {
   $('legend').innerHTML = legendHTML(s);
 
   $('offline').hidden = !state.offline;
-  ['newBtn', 'pSave', 'pDel'].forEach(id => $(id).disabled = state.offline);
+  $('newBtn').textContent = yeniDugme();
+  ['newBtn', 'pSave', 'pDel', 'tSave'].forEach(id => $(id).disabled = state.offline);
   $('pFields').disabled = state.offline;
+  $('tFields').disabled = state.offline;
   $('kFields').disabled = state.offline;
   if (!$('kPanel').hidden) kisiCiz();
 }
@@ -783,7 +1034,7 @@ function anahtarYanlis(key) {
 
 // Aktif panonun kayıtlı verisini ekrana getirir.
 function panoYukle() {
-  state.gorevler = []; state.kisiler = [];
+  state.gorevler = []; state.kisiler = []; state.evler = [];
   state.kisi = TUMU; state.bitenTumu = false;
   state.istekNo++;
   try { const c = JSON.parse(lsGet(veriAnahtari()) || 'null'); if (c) { veriUygula(c, false); return; } } catch (e) {}
@@ -813,6 +1064,7 @@ async function yenile() {
     }
     state.offline = false;
     veriUygula(j, true);
+    kuyrukGonder();
   } catch (e) {
     if (no !== state.istekNo) return;
     state.offline = true;
@@ -859,7 +1111,7 @@ function panelAc(id) {
 }
 
 function kapat() {
-  ['panel', 'kPanel'].forEach(id => { $(id).hidden = true; });
+  ['panel', 'kPanel', 'tPanel'].forEach(id => { $(id).hidden = true; });
   $('overlay').hidden = true;
   document.body.style.overflow = '';
   state.taslak = null;
@@ -880,7 +1132,8 @@ function ac(g) {
     ? { id: yeniId(), ad: '', sorumlu: ilkKisi, belirleme_tarihi: t, baslangic: '', bitis: '', bitti: false, durum: DURUMLAR[0], alt_gorevler: [], yeni: true }
     : Object.assign(normal(g), { alt_gorevler: g.alt_gorevler.map(a => ({ ...a })), yeni: false });
   const d = state.taslak;
-  $('pTitle').textContent = yeni ? 'Yeni görev' : 'Görev';
+  const kontrollu = !!(g && g.kontrol);
+  $('pTitle').textContent = yeni ? 'Yeni görev' : (kontrollu ? 'Temizlik' : 'Görev');
   const adlar = state.kisiler.map(k => k.ad);
   if (d.sorumlu && !adlar.includes(d.sorumlu)) adlar.push(d.sorumlu);
   $('fSorumlu').innerHTML = adlar.map(k => '<option' + (k === d.sorumlu ? ' selected' : '') + '>' + esc(k) + '</option>').join('');
@@ -892,6 +1145,10 @@ function ac(g) {
   $('fDurum').innerHTML = DURUMLAR.map(k => '<option' + (k === d.durum ? ' selected' : '') + '>' + k + '</option>').join('');
   $('fBitti').checked = d.bitti;
   altlariCiz();
+  $('fAltAlan').hidden = kontrollu;
+  $('fBittiAlan').hidden = kontrollu;
+  state.kAcik = {};
+  kontrolCiz();
   ['eAd', 'eSorumlu', 'eBel', 'eBas', 'eBit', 'eSave'].forEach(id => $(id).textContent = '');
   minleri();
   $('pDel').hidden = yeni;
@@ -900,7 +1157,7 @@ function ac(g) {
   $('pSave').textContent = 'Kaydet';
   panelAc('panel');
   ciz();
-  (state.offline ? $('panel').querySelector('[data-kapat]') : $('fAd')).focus();
+  (state.offline || kontrollu ? $('panel').querySelector('[data-kapat]') : $('fAd')).focus();
 }
 
 function sorumluNokta() {
@@ -952,7 +1209,8 @@ async function kaydet() {
   const gorev = {
     id: d.id, ad: $('fAd').value.trim(), sorumlu: $('fSorumlu').value,
     belirleme_tarihi: $('fBel').value, baslangic: $('fBas').value, bitis: $('fBit').value,
-    bitti: $('fBitti').checked, durum: $('fDurum').value,
+    bitti: $('fBittiAlan').hidden ? !!(state.gorevler.find(x => x.id === d.id) || {}).bitti : $('fBitti').checked,
+    durum: $('fDurum').value,
     alt_gorevler: d.alt_gorevler.map(a => ({ ad: a.ad.trim(), bitti: a.bitti })).filter(a => a.ad)
   };
   $('pSave').disabled = true;
@@ -1090,7 +1348,9 @@ function kutuphane() {
 }
 
 const XR = { g: ['EAF3DE', '27500A'], b: ['E6F1FB', '0C447C'], r: ['FCEBEB', '791F1F'], k: ['F1EFE8', '444441'], we: 'F4F8FD', line: 'D3D1C7', text: '2C2C2A', text2: '5F5E5A' };
-const altMetin = g => g.alt_gorevler.map(a => (a.bitti ? '✓ ' : '☐ ') + a.ad).join('\n');
+const altMetin = g => kontrolluMu(g)
+  ? kontrolMetni(g.kontrol) + (eksikMetni(g.kontrol) ? '\nEksik: ' + eksikMetni(g.kontrol) : '')
+  : g.alt_gorevler.map(a => (a.bitti ? '✓ ' : '☐ ') + a.ad).join('\n');
 const font = (renk, kalin) => ({ font: { name: 'Calibri', sz: 11, bold: !!kalin, color: { rgb: renk || XR.text } } });
 const dolgu = rgb => ({ fill: { patternType: 'solid', fgColor: { rgb } } });
 
@@ -1197,7 +1457,29 @@ function temaDegistir() {
 }
 
 $('themeBtn').addEventListener('click', temaDegistir);
-$('newBtn').addEventListener('click', () => ac(null));
+$('newBtn').addEventListener('click', () => (state.evler.length ? temizlikAc() : ac(null)));
+$('tEv').addEventListener('click', e => {
+  const b = e.target.closest('[data-ev]');
+  if (!b) return;
+  state.tEv = b.dataset.ev;
+  $('tEvErr').textContent = '';
+  tEvCiz();
+  $('tEv').querySelector('[aria-pressed="true"]').focus();
+});
+$('tSorumlu').addEventListener('change', () => { tSorumluNokta(); $('tSorumluErr').textContent = ''; });
+$('tSave').addEventListener('click', temizlikOlustur);
+$('kontrolAlan').addEventListener('click', e => {
+  const b = e.target.closest('[data-anahtar]');
+  if (!b || !state.taslak) return;
+  const a = b.dataset.anahtar.split('.');
+  const basili = b.getAttribute('aria-pressed') === 'true';
+  if (a[0] === 'mz') isaretle(state.taslak.id, { t: 'mz', i: +a[1], v: basili ? '' : a[2] });
+  else if (a[0] === 'm') isaretle(state.taslak.id, { t: 'm', b: +a[1], i: +a[2], v: !basili });
+  else isaretle(state.taslak.id, { t: 'z', b: +a[1], i: +a[2], o: +a[3], v: !basili });
+});
+$('kontrolAlan').addEventListener('toggle', e => {
+  if (e.target.matches && e.target.matches('details.kb')) state.kAcik[e.target.dataset.bolum] = e.target.open;
+}, true);
 $('prevWeek').addEventListener('click', () => { state.hafta = gunEkle(state.hafta, -7); ciz(); });
 $('nextWeek').addEventListener('click', () => { state.hafta = gunEkle(state.hafta, 7); ciz(); });
 $('people').addEventListener('click', e => {
@@ -1237,7 +1519,7 @@ document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   if (!$('panel').hidden && !$('footConfirm').hidden) { $('footConfirm').hidden = true; $('footNormal').hidden = false; $('pDel').focus(); return; }
   if (!$('kPanel').hidden && state.kMesaj) { state.kMesaj = null; kisiCiz(); return; }
-  if (!$('panel').hidden || !$('kPanel').hidden) kapat();
+  if (!$('panel').hidden || !$('kPanel').hidden || !$('tPanel').hidden) kapat();
 });
 
 // Görev paneli olayları
