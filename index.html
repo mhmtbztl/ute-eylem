@@ -277,6 +277,12 @@
   .km { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 8px 0; border-top: 1px solid var(--line); }
   .kmetin { flex: 1 1 180px; min-width: 0; font-size: 15px; line-height: 1.35; overflow-wrap: anywhere; }
   .kbtn { display: flex; gap: 6px; margin-left: auto; }
+  .km .kh, .sub .kh {
+    width: 32px; min-height: 44px; flex: none; display: flex; align-items: center; justify-content: center;
+    color: var(--text2); font-size: 20px; line-height: 1; cursor: grab;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+  .km .kh + .kmetin { flex-basis: 150px; }
   .kx {
     min-width: 44px; height: 44px; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px;
     background: var(--bg); color: var(--text2); font-size: 15px; cursor: pointer;
@@ -665,6 +671,11 @@ function kuyrukKaydet(key) {
 function kontrolUygula(g, x) {
   const k = g.kontrol;
   if (!k || k.arsiv) return;
+  if (x.t === 'sira') {
+    const dizi = x.b === 'mz' ? k.mz : (k.b[x.b] && k.b[x.b].m);
+    if (dizi && dizi[x.from] && dizi[x.to] && x.from !== x.to) dizi.splice(x.to, 0, dizi.splice(x.from, 1)[0]);
+    return;
+  }
   if (x.t === 'mz') { if (k.mz[x.i]) k.mz[x.i].d = x.v; }
   else {
     const m = k.b[x.b] && k.b[x.b].m[x.i];
@@ -726,16 +737,22 @@ async function kuyrukGonder(key) {
   else if (kuyruk(key).length) kuyrukGonder(key);
 }
 
+const TUTAMAC = '<span class="kh" aria-hidden="true" title="Sürükleyerek sırala">⠿</span>';
+let kontrolSiralayicilar = [];
+
 function kontrolCiz() {
   const alan = $('kontrolAlan');
   const g = state.taslak && state.gorevler.find(y => y.id === state.taslak.id);
   const k = g && g.kontrol;
-  if (!k) { alan.hidden = true; alan.innerHTML = ''; return; }
+  if (!k) { alan.hidden = true; alan.innerHTML = ''; alan.dataset.id = ''; return; }
   alan.hidden = false;
   if (k.arsiv) {
     alan.innerHTML = '<p class="sec">Bu temizlik ' + 45 + ' günden eski. İşaretleri Sheet\'te görev satırının "kontrol" sütununda duruyor.</p>';
     return;
   }
+  // Açık bölümleri koru (aynı görev yeniden çiziliyorsa)
+  if (alan.dataset.id === g.id) alan.querySelectorAll('details.kb').forEach(d => { state.kAcik[d.dataset.bolum] = d.open; });
+  alan.dataset.id = g.id;
   const odak = document.activeElement && alan.contains(document.activeElement) ? document.activeElement.dataset.anahtar : null;
   const c = kontrolSay(k);
   const bekleyen = kuyruk(aktifKey).filter(x => x.id === g.id).length;
@@ -749,31 +766,40 @@ function kontrolCiz() {
     const n = b.m.length, z = b.m.filter(x => x.z.every(Boolean)).length, m = b.m.filter(x => x.k).length;
     h += '<details class="kb" data-bolum="' + bi + '"' + (state.kAcik[bi] ? ' open' : '') + '>' +
       '<summary><span>' + esc(b.ad) + '</span><span class="sec say">Z ' + z + '/' + n + ' · M ' + m + '/' + n + '</span>' + ok + '</summary>' +
-      (b.not ? '<p class="sec knot">' + esc(b.not) + '</p>' : '');
+      (b.not ? '<p class="sec knot">' + esc(b.not) + '</p>' : '') + '<div class="kitems" data-b="' + bi + '">';
     b.m.forEach((x, i) => {
       const zb = x.z.map((v, o) =>
         '<button type="button" class="kx z" data-anahtar="z.' + bi + '.' + i + '.' + o + '" aria-pressed="' + v + '"' +
         ' aria-label="' + (x.o ? 'Z, ODA ' + (o + 1) : 'Z, yapıldı') + '">' + (x.o ? 'Z' + (o + 1) : 'Z') + '</button>').join('');
-      h += '<div class="km"><div class="kmetin">' + esc(x.ad) + '</div><div class="kbtn">' + zb +
+      h += '<div class="km">' + TUTAMAC + '<div class="kmetin">' + esc(x.ad) + '</div><div class="kbtn">' + zb +
         '<button type="button" class="kx m" data-anahtar="m.' + bi + '.' + i + '" aria-pressed="' + x.k + '" aria-label="M, kontrol edildi">M</button>' +
         '</div></div>';
     });
-    h += '</details>';
+    h += '</div></details>';
   });
   if (k.mz.length) {
     const e = c.eksik.length, bos = k.mz.filter(x => !x.d).length;
     const say = [e ? e + ' eksik' : '', bos ? bos + ' bakılmadı' : ''].filter(Boolean).join(' · ') || 'tamam';
     h += '<details class="kb" data-bolum="mz"' + (state.kAcik.mz ? ' open' : '') + '>' +
-      '<summary><span>Malzeme listesi</span><span class="sec say">' + say + '</span>' + ok + '</summary>';
+      '<summary><span>Malzeme listesi</span><span class="sec say">' + say + '</span>' + ok + '</summary><div class="kitems" data-b="mz">';
     k.mz.forEach((x, i) => {
-      h += '<div class="km"><div class="kmetin">' + esc(x.ad) + '</div><div class="kbtn" role="group" aria-label="' + esc(x.ad) + '">' +
+      h += '<div class="km">' + TUTAMAC + '<div class="kmetin">' + esc(x.ad) + '</div><div class="kbtn" role="group" aria-label="' + esc(x.ad) + '">' +
         [['var', 'Var'], ['az', 'Az'], ['yok', 'Yok']].map(([v, t]) =>
           '<button type="button" class="kx ' + v + '" data-anahtar="mz.' + i + '.' + v + '" aria-pressed="' + (x.d === v) + '">' + t + '</button>').join('') +
         '</div></div>';
     });
-    h += '</details>';
+    h += '</div></details>';
   }
   alan.innerHTML = h;
+  kontrolSiralayicilar.forEach(x => x.destroy());
+  kontrolSiralayicilar = window.Sortable ? [...alan.querySelectorAll('.kitems')].map(el => Sortable.create(el, {
+    handle: '.kh', animation: 150, fallbackTolerance: 3,
+    onEnd: ev => {
+      if (ev.oldIndex === ev.newIndex) return;
+      const b = el.dataset.b;
+      isaretle(g.id, { t: 'sira', b: b === 'mz' ? 'mz' : +b, from: ev.oldIndex, to: ev.newIndex });
+    }
+  })) : [];
   if (odak) { const el = alan.querySelector('[data-anahtar="' + odak + '"]'); if (el) el.focus({ preventScroll: true }); }
 }
 
@@ -1168,6 +1194,7 @@ function sorumluNokta() {
 function altlariCiz() {
   $('subs').innerHTML = state.taslak.alt_gorevler.map((a, i) =>
     '<li class="sub">' +
+      '<span class="kh" aria-hidden="true" title="Sürükleyerek sırala">⠿</span>' +
       '<label class="cb"><input type="checkbox" data-i="' + i + '"' + (a.bitti ? ' checked' : '') + ' aria-label="Alt görev bitti"></label>' +
       '<input type="text" data-i="' + i + '" value="' + esc(a.ad) + '" placeholder="Alt görev adı" aria-label="Alt görev adı">' +
       '<button type="button" class="x" data-sil="' + i + '" aria-label="Alt görevi sil">×</button>' +
@@ -1555,6 +1582,17 @@ $('subs').addEventListener('click', e => {
   altlariCiz();
   $('addSub').focus();
 });
+if (window.Sortable) {
+  Sortable.create($('subs'), {
+    handle: '.kh', animation: 150, fallbackTolerance: 3,
+    onEnd: ev => {
+      if (ev.oldIndex === ev.newIndex || !state.taslak) return;
+      const a = state.taslak.alt_gorevler;
+      a.splice(ev.newIndex, 0, a.splice(ev.oldIndex, 1)[0]);
+      altlariCiz();
+    }
+  });
+}
 $('addSub').addEventListener('click', () => {
   state.taslak.alt_gorevler.push({ ad: '', bitti: false });
   altlariCiz();
